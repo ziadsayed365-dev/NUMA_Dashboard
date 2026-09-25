@@ -5,6 +5,17 @@ import { fetchAllRows } from "@/lib/fetch-all";
 import { getBuiltCostResolver } from "@/lib/products/final-products";
 import { getCourierFees } from "@/lib/shipping/fees";
 import { countsAsPlaced } from "@/lib/orders/placed";
+import { daysAgo } from "@/lib/dates";
+
+// A Sync only recomputes the orders whose margin can still move: those placed
+// in the last MARGIN_WINDOW_DAYS, plus any older order changed (Khazenly outcome,
+// return recorded...) in the last MARGIN_CHANGED_DAYS - every such write stamps
+// orders.updated_at. Rebuilding the whole history on every Sync (and on AI NUMA's
+// nightly run) grows with the store and was the costliest part of the sibling
+// dashboards' Vercel CPU. Pass { fullHistory: true } for a deliberate full
+// rebuild (e.g. after a cost correction that must reach old orders).
+const MARGIN_WINDOW_DAYS = 60;
+const MARGIN_CHANGED_DAYS = 30;
 
 type Settings = {
   cod_cash_fee_pct: number;
@@ -17,7 +28,9 @@ type Settings = {
   bosta_open_package_vat_pct: number;
 };
 
-export async function computeMargins(): Promise<{ ok: boolean; lineItemsComputed: number; missingCost: number; error?: string }> {
+export async function computeMargins(
+  opts?: { fullHistory?: boolean }
+): Promise<{ ok: boolean; lineItemsComputed: number; missingCost: number; error?: string }> {
   try {
     const { data: settingsRow, error: settingsErr } = await supabase.from("settings").select("*").eq("id", 1).single();
     if (settingsErr || !settingsRow) throw new Error(`Failed to load settings: ${settingsErr?.message}`);
@@ -67,7 +80,11 @@ export async function computeMargins(): Promise<{ ok: boolean; lineItemsComputed
     const orders = await fetchAllRows<any>(
       supabase,
       "orders",
-      "id, egypt_day, total_price, cod_amount_collected, outcome, outcome_governorate, governorate_shopify, attempt_number, cancelled_at, courier, bosta_tracking_number, shipping_fee_charged, order_line_items(id, product_id, variant_id, quantity, unit_price, products(id, model_group_id, unit_cost_override))"
+      "id, egypt_day, total_price, cod_amount_collected, outcome, outcome_governorate, governorate_shopify, attempt_number, cancelled_at, courier, bosta_tracking_number, shipping_fee_charged, order_line_items(id, product_id, variant_id, quantity, unit_price, products(id, model_group_id, unit_cost_override))",
+      opts?.fullHistory
+        ? undefined
+        : (query) =>
+            query.or(`egypt_day.gte.${daysAgo(MARGIN_WINDOW_DAYS)},updated_at.gte.${daysAgo(MARGIN_CHANGED_DAYS)}T00:00:00Z`)
     );
 
     let lineItemsComputed = 0;
