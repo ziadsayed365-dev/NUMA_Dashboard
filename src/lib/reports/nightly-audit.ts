@@ -228,10 +228,10 @@ export async function runNightlyAudit(day: string): Promise<NightlyAudit> {
   ]);
   if (productsRes.error) throw new Error(`Failed to load products: ${productsRes.error.message}`);
 
-  const ties = await Promise.all([
-    tieCheck(day, "performance", unallocated.daySpend),
-    tieCheck(day, "actual", unallocated.daySpend),
-  ]);
+  // Performance only, the mode the nightly PDF prints. Actual counts only orders
+  // handed to the courier, so the day just reported has almost none and the two
+  // reports split its ad spend differently - a gap that is not in the PDF.
+  const ties = [await tieCheck(day, "performance", unallocated.daySpend)];
   const tiesOk = ties.every((t) => t.revenue.ok && t.cogs.ok && t.adSpend.ok);
 
   return {
