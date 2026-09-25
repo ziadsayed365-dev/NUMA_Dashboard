@@ -1,0 +1,14 @@
+-- "General (all products)" allocation for an ad. Previously every ad_assignment
+-- pointed at exactly one product (product_id not null). The owner can now mark an
+-- ad as General in the Analysis-by-Product popup, meaning its spend isn't tied to
+-- one product and is instead split equally across all products (the same way
+-- TikTok "General" spend already is).
+--
+-- A General ad keeps product_id null in ad_spend (so it still flows into the
+-- store-wide P&L marketing total and can be spread), but it now carries an
+-- ad_assignments row with a NULL product_id. That row is what distinguishes a
+-- deliberately-General ad from a still-unallocated one (which has no row at all):
+--   - no ad_assignments row      -> unallocated, shown in the "needs a product" popup
+--   - ad_assignments.product_id null -> General, split across all products
+--   - ad_assignments.product_id set  -> allocated to that one product
+alter table ad_assignments alter column product_id drop not null;

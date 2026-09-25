@@ -1,0 +1,14 @@
+.env.local
+.env*.local
+*.local
+.claude
+scripts/local
+
+# Exports from the local analysis/repair scripts - they hold order-level business
+# data and are not part of the app.
+#
+# Do NOT add "*.mjs" here: postcss.config.mjs and eslint.config.mjs live at the
+# repo root, and excluding them ships the app with no Tailwind build at all (the
+# site renders as unstyled HTML). The scripts themselves carry no data - they read
+# .env.local, which is already excluded above - so there is nothing to gain.
+*.csv
