@@ -80,7 +80,7 @@ export async function computeMargins(
     const orders = await fetchAllRows<any>(
       supabase,
       "orders",
-      "id, egypt_day, total_price, cod_amount_collected, outcome, outcome_governorate, governorate_shopify, attempt_number, cancelled_at, courier, bosta_tracking_number, shipping_fee_charged, order_line_items(id, product_id, variant_id, quantity, unit_price, products(id, model_group_id, unit_cost_override))",
+      "id, egypt_day, bosta_picked_up_day, total_price, cod_amount_collected, outcome, outcome_governorate, governorate_shopify, attempt_number, cancelled_at, courier, bosta_tracking_number, shipping_fee_charged, order_line_items(id, product_id, variant_id, quantity, unit_price, products(id, model_group_id, unit_cost_override))",
       opts?.fullHistory
         ? undefined
         : (query) =>
@@ -155,10 +155,13 @@ export async function computeMargins(
       // Both are null while Khazenly has no price sheet (and actual is null for
       // an order nothing has shipped yet); those keep the break-even
       // placeholder below.
-      const actualDelivered = fees.actual(order.courier, governorate, true);
-      const actualReturned = fees.actual(order.courier, governorate, false);
-      const blendedDelivered = fees.blended(governorate, true);
-      const blendedReturned = fees.blended(governorate, false);
+      //
+      // Priced on Khazenly's sheet in effect the day it shipped (the order day until then).
+      const feeDay = order.bosta_picked_up_day ?? order.egypt_day;
+      const actualDelivered = fees.actual(order.courier, governorate, true, feeDay);
+      const actualReturned = fees.actual(order.courier, governorate, false, feeDay);
+      const blendedDelivered = fees.blended(governorate, true, feeDay);
+      const blendedReturned = fees.blended(governorate, false, feeDay);
       const isUnpriced = actualDelivered === null;
 
       // Scales the settings' open-package and COD cash fees - Bosta-era charges,

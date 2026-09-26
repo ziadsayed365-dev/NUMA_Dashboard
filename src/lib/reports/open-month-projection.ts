@@ -174,8 +174,12 @@ export async function getOpenMonthRows(
     // order at the blended rate - each priced courier's fee weighted by the
     // trailing shipment mix - and a day's shipping economics no longer swing on
     // how many of its orders happen to be recorded to which courier yet.
+    // Priced on Khazenly's sheet in effect the day it shipped (the order day until then).
+    const feeDay = order.bosta_picked_up_day ?? order.egypt_day;
     const resolved = (delivered: boolean) =>
-      mode === "actual" ? fees.actual(order.courier, governorate, delivered) : fees.blended(governorate, delivered);
+      mode === "actual"
+        ? fees.actual(order.courier, governorate, delivered, feeDay)
+        : fees.blended(governorate, delivered, feeDay);
     const deliveredFee = resolved(true);
     const returnedFee = resolved(false);
     // No Khazenly price sheet yet (either mode), or - in Actual - nothing has

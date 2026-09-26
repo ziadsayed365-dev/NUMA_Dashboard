@@ -19,8 +19,10 @@ P&L / margin engine.
 - Inherited column names are kept: `bosta_picked_up_day` = Khazenly fulfillment day,
   `bosta_tracking_number` = Khazenly tracking number, `bostaPenalty` = return penalty
   (migration 0076). `movers_record_date` is unused.
-- Fees: `courier_governorate_fees` rows for `'khazenly'` (migrations 0084/0085, 92-154 EGP per
-  governorate; Helwan and 6th of October are priced separately from Cairo / Giza). A return costs the
+- Fees: `courier_governorate_fees` rows for `'khazenly'`, date-effective via `effective_from`
+  (0084/0085: 92-154 EGP per governorate; 0086: 78-139 EGP from 2026-10-01). A shipment is priced on
+  the sheet in effect on its fulfillment day (order day until shipped). Helwan and 6th of October are
+  priced separately from Cairo / Giza. A return costs the
   full delivery fee again, and Khazenly charges no COD / open-package fee - both confirmed by the owner
   (`src/lib/shipping/fees.ts`).
 
