@@ -65,12 +65,16 @@ async function sync() {
   };
 
   for (const step of PULL_STEPS) {
-    for (let run = 1; run <= MAX_RUNS_PER_STEP; run++) {
+    let drained = false;
+    for (let run = 1; run <= MAX_RUNS_PER_STEP && !drained; run++) {
       const attempt = await syncStep(step);
       results.push(attempt.data);
       if (!attempt.ok) fail(step, attempt.error);
-      if (attempt.data.reachedEnd !== false) break;
+      drained = attempt.data.reachedEnd !== false;
     }
+    // A half-finished pull is not a sync: the report would be short of the
+    // day's latest orders or spend, so stop here rather than audit it.
+    if (!drained) fail(step, `still not caught up after ${MAX_RUNS_PER_STEP} runs`);
     console.log(`${step}: ok`);
   }
   for (const step of COMPUTE_STEPS) {
