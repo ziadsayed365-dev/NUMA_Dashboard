@@ -23,20 +23,22 @@ export function ExportPdfModal({ defaultTo }: { defaultTo: string }) {
   const [to, setTo] = useState(defaultTo);
   const [includeIncome, setIncludeIncome] = useState(true);
   const [includeProduct, setIncludeProduct] = useState(false);
+  // The Campaigns P&L (P&L by Campaign, then Products Sold) as the last two pages.
+  const [includeCampaigns, setIncludeCampaigns] = useState(false);
 
   const days = dayCount(from, to);
   const rangeInvalid = from > to;
   // Only the Income Statement is day-columned, so only it is capped.
   const capped = includeIncome;
   const tooManyDays = capped && days > MAX_DAYS;
-  const nothingSelected = !includeIncome && !includeProduct;
+  const nothingSelected = !includeIncome && !includeProduct && !includeCampaigns;
   const canGenerate = !rangeInvalid && !tooManyDays && !nothingSelected && days >= 1;
 
   function generate() {
     if (!canGenerate) return;
     const url =
       `/print/income-statement?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}` +
-      `&is=${includeIncome ? 1 : 0}&product=${includeProduct ? 1 : 0}`;
+      `&is=${includeIncome ? 1 : 0}&product=${includeProduct ? 1 : 0}&campaigns=${includeCampaigns ? 1 : 0}`;
     window.open(url, "_blank", "noopener");
     setOpen(false);
   }
@@ -107,7 +109,7 @@ export function ExportPdfModal({ defaultTo }: { defaultTo: string }) {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-500">Include (pick one or both)</label>
+                <label className="block text-xs font-medium text-gray-500">Include (pick at least one)</label>
                 <div className="mt-1 space-y-2">
                   <label className="flex cursor-pointer items-start gap-2 rounded border border-gray-200 p-2 text-sm hover:bg-gray-50">
                     <input
@@ -133,6 +135,18 @@ export function ExportPdfModal({ defaultTo }: { defaultTo: string }) {
                     <span>
                       <span className="font-medium text-gray-900">Analysis by Product</span>
                       <span className="block text-xs text-gray-500">Per-product table totalled over the whole range — any length.</span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-2 rounded border border-gray-200 p-2 text-sm hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      checked={includeCampaigns}
+                      onChange={(e) => setIncludeCampaigns(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="font-medium text-gray-900">Campaigns P&amp;L</span>
+                      <span className="block text-xs text-gray-500">P&amp;L by campaign, then products sold by campaign - one page each.</span>
                     </span>
                   </label>
                 </div>

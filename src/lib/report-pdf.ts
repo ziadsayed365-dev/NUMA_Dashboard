@@ -55,14 +55,15 @@ async function launch(): Promise<Browser> {
 // `baseUrl` must be an absolute origin the function can reach (its own
 // deployment URL). `date` is the single day the report covers: the Income
 // Statement for that day, then Analysis by Product.
-export async function renderReportPdf(baseUrl: string, date: string): Promise<Buffer> {
+// opts.campaigns adds the Campaigns P&L as two more pages (the Telegram bot's report).
+export async function renderReportPdf(baseUrl: string, date: string, opts: { campaigns?: boolean } = {}): Promise<Buffer> {
   const secret = process.env.SESSION_SECRET;
   if (!secret) throw new Error("SESSION_SECRET is not set - cannot authenticate the PDF renderer");
 
   const origin = baseUrl.replace(/\/+$/, "");
   const url =
     `${origin}/print/income-statement?from=${encodeURIComponent(date)}&to=${encodeURIComponent(date)}` +
-    `&is=1&product=1&auto=0`;
+    `&is=1&product=1&campaigns=${opts.campaigns ? 1 : 0}&auto=0`;
 
   let browser: Browser | null = null;
   try {
@@ -96,6 +97,9 @@ export async function renderReportPdf(baseUrl: string, date: string): Promise<Bu
       throw new Error(`No data for ${date} - the report would be empty`);
     }
 
+    // The Campaigns P&L pages fit themselves to A4 once rendered; print only after.
+    if (opts.campaigns) await page.waitForSelector('[data-campaigns="fitted"]', { timeout: 60_000 });
+
     // One page per section: the Income Statement, then Analysis by Product. Lay
     // the page out at the printed width, then shrink any section taller than one
     // A4 page until it fits, rather than let it spill onto a second page.
@@ -113,54 +117,6 @@ export async function renderReportPdf(baseUrl: string, date: string): Promise<Bu
       printBackground: true,
       margin: { top: "10mm", right: "10mm", bottom: "10mm", left: "10mm" },
     });
-    return Buffer.from(pdf);
-  } finally {
-    await browser?.close();
-  }
-}
-
-// The Campaigns P&L PDF's file name, sent beside the report's.
-export function campaignsFileName(day: string): string {
-  return `${reportBaseName(day)} campaigns.pdf`;
-}
-
-// The Campaigns P&L for one day, exactly as its own Export PDF prints it: P&L
-// by Campaign on the first page, Products Sold on the second, each fitted to
-// A4 by the page itself. Sent right after the report.
-export async function renderCampaignsPdf(origin: string, day: string): Promise<Buffer> {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret) throw new Error("SESSION_SECRET is not set - cannot open the campaigns page");
-  const base = origin.replace(/\/+$/, "");
-  const url = `${base}/print/campaigns?from=${day}&to=${day}`;
-
-  let browser: Browser | null = null;
-  try {
-    browser = await launch();
-    const page = await browser.newPage();
-    // The page fits each section to its A4 page and then opens the print
-    // dialog - so that call is the sign its layout is final.
-    await page.evaluateOnNewDocument(() => {
-      window.print = () => {
-        (window as unknown as { __fitted?: boolean }).__fitted = true;
-      };
-    });
-    await browser.setCookie({
-      name: SESSION_COOKIE_NAME,
-      value: createSessionToken({ role: "owner", userId: null }, secret),
-      domain: new URL(base).hostname,
-      path: "/",
-      httpOnly: true,
-      secure: base.startsWith("https://"),
-    });
-
-    const res = await page.goto(url, { waitUntil: "load", timeout: 180_000 });
-    if (new URL(page.url()).pathname !== "/print/campaigns") {
-      throw new Error(`campaigns page redirected to ${new URL(page.url()).pathname} - session rejected`);
-    }
-    if (!res || !res.ok()) throw new Error(`campaigns page answered HTTP ${res?.status() ?? "none"}`);
-    await page.waitForFunction(() => (window as unknown as { __fitted?: boolean }).__fitted === true, { timeout: 60_000 });
-    await page.emulateMediaType("print");
-    const pdf = await page.pdf({ format: "a4", printBackground: true, preferCSSPageSize: true });
     return Buffer.from(pdf);
   } finally {
     await browser?.close();

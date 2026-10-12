@@ -6,7 +6,9 @@ import { getPerProductReport, type ProductReportRow } from "@/lib/reports/per-pr
 import { getPerfExpenseHistory } from "@/lib/settings/fixed-expenses";
 import type { PerfExpenseHistory } from "@/lib/settings/perf-expenses";
 import { egyptToday, addDays } from "@/lib/dates";
+import { getCampaignPnl } from "@/lib/reports/campaign-pnl";
 import { PrintReport } from "./print-report";
+import { CampaignPages } from "./campaign-pages";
 
 export const dynamic = "force-dynamic";
 // An uncapped Analysis-by-Product range scans every line item in the window
@@ -33,7 +35,7 @@ const MAX_COLUMNS = 7;
 export default async function IncomeStatementPrintPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string; is?: string; product?: string; auto?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; is?: string; product?: string; auto?: string; campaigns?: string }>;
 }) {
   const params = await searchParams;
 
@@ -50,7 +52,14 @@ export default async function IncomeStatementPrintPage({
   // shows something.
   let showIncome = params.is === "1";
   const showProduct = params.product === "1";
-  if (!showIncome && !showProduct) showIncome = true;
+  // The Campaigns P&L, as two more pages after the rest.
+  const showCampaigns = params.campaigns === "1";
+  if (!showIncome && !showProduct && !showCampaigns) showIncome = true;
+
+  // The Campaigns P&L on its own: just its two pages.
+  if (!showIncome && !showProduct) {
+    return <CampaignPages report={await getCampaignPnl(from, to)} newPage={false} autoPrint={params.auto !== "0"} />;
+  }
 
   // Same source the on-screen Income Statement uses; the columns are exactly the
   // chosen days that have data, capped at the last 7. Skipped entirely for a
@@ -78,17 +87,22 @@ export default async function IncomeStatementPrintPage({
     products = report.products;
   }
 
+  const campaigns = showCampaigns ? await getCampaignPnl(colFrom, to) : null;
+
   return (
-    <PrintReport
-      window={window}
-      showIncome={showIncome}
-      showProduct={showProduct}
-      products={products}
-      perfHistory={perfHistory}
-      expectedDeliveryRate={expectedDeliveryRate}
-      from={colFrom}
-      to={to}
-      autoPrint={params.auto !== "0"}
-    />
+    <>
+      <PrintReport
+        window={window}
+        showIncome={showIncome}
+        showProduct={showProduct}
+        products={products}
+        perfHistory={perfHistory}
+        expectedDeliveryRate={expectedDeliveryRate}
+        from={colFrom}
+        to={to}
+        autoPrint={params.auto !== "0"}
+      />
+      {campaigns && <CampaignPages report={campaigns} newPage autoPrint={false} />}
+    </>
   );
 }

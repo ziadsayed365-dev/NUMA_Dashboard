@@ -7,7 +7,7 @@ import { getDailyPnl } from "@/lib/reports/daily-pnl";
 import { getPerProductReport } from "@/lib/reports/per-product";
 import { egyptToday, addDays } from "@/lib/dates";
 import { applyAgentActions } from "@/lib/agent/actions";
-import { renderReportPdf, renderCampaignsPdf, campaignsFileName, reportBaseName } from "@/lib/report-pdf";
+import { renderReportPdf, reportBaseName } from "@/lib/report-pdf";
 import { sendText, sendPoll, stopPoll, sendDocument } from "@/lib/telegram";
 
 // AI NUMA's questions on Telegram. Everything the report is waiting on goes out
@@ -234,23 +234,9 @@ function reportText(a: NightlyAudit): string {
 
 const PDF_ATTEMPTS = 3;
 
-// Renders one PDF, trying PDF_ATTEMPTS times.
-async function makePdf(what: string, render: () => Promise<Buffer>): Promise<{ pdf: Buffer | null; error: string }> {
-  let error = "";
-  for (let attempt = 1; attempt <= PDF_ATTEMPTS; attempt++) {
-    try {
-      return { pdf: await render(), error: "" };
-    } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
-      console.error(`${what} PDF attempt ${attempt} failed:`, err);
-    }
-  }
-  return { pdf: null, error };
-}
-
-// The report never goes out without its PDFs - the report itself and the
-// Campaigns P&L. If either can't be made, nothing is sent: the owner is told and
-// can reply "pdf" to try again (handleText).
+// The report (with the Campaigns P&L as its last two pages) never goes out
+// without its PDF. If it can't be made, the owner is
+// told and can reply "pdf" to try again (handleText).
 async function sendReport(audit: NightlyAudit, fallbackOrigin: string, opts: { force?: boolean } = {}): Promise<boolean> {
   // Claimed first, so the report goes out once however many answers land at
   // once. A "pdf" request skips the claim: it was asked for.
@@ -274,19 +260,25 @@ async function sendReport(audit: NightlyAudit, fallbackOrigin: string, opts: { f
     getPerProductReport(audit.day, audit.day, "performance"),
   ]).catch(() => {});
 
-  const report = await makePdf("report", () => renderReportPdf(origin(fallbackOrigin), audit.day));
-  const campaigns = report.pdf
-    ? await makePdf("campaigns", () => renderCampaignsPdf(origin(fallbackOrigin), audit.day))
-    : { pdf: null, error: "" };
+  let pdf: Buffer | null = null;
+  let lastError = "";
+  for (let attempt = 1; attempt <= PDF_ATTEMPTS && !pdf; attempt++) {
+    try {
+      pdf = await renderReportPdf(origin(fallbackOrigin), audit.day, { campaigns: true });
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : String(err);
+      console.error(`report PDF attempt ${attempt} failed:`, err);
+    }
+  }
   try {
-    if (!report.pdf || !campaigns.pdf) {
+    if (!pdf) {
       await release();
-      const failed = report.pdf ? `the Campaigns P&L PDF didn't come out (${campaigns.error.slice(0, 200)})` : `the PDF didn't come out (${report.error.slice(0, 200)})`;
-      await sendText(`AI NUMA: ${fmtDay(audit.day)} report is ready, but ${failed}.\n\nReply "pdf" to try again.`);
+      await sendText(
+        `AI NUMA: ${fmtDay(audit.day)} report is ready, but the PDF didn't come out (${lastError.slice(0, 200)}).\n\nReply "pdf" to try again.`
+      );
       return false;
     }
-    await sendDocument(reportText(audit), report.pdf, `${reportBaseName(audit.day)}.pdf`);
-    await sendDocument(`Campaigns P&L - ${fmtDay(audit.day)}`, campaigns.pdf, campaignsFileName(audit.day));
+    await sendDocument(reportText(audit), pdf, `${reportBaseName(audit.day)}.pdf`);
     return true;
   } catch (err) {
     // Not sent: release the claim so the next answer or run tries again.
