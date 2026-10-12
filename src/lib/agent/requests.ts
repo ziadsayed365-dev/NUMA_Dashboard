@@ -327,8 +327,9 @@ async function recheckCost(request: RequestRow, messageId: number): Promise<Foll
 
 // A text message: the number answering a TikTok question, or "done" for a cost.
 export async function handleText(text: string, messageId: number, replyTo: number | null): Promise<FollowUp> {
-  // "pdf" / "report" (optionally with a day): send that day's report now.
-  const ask = text.trim().match(/^(pdf|report|تقرير)(?:\s+(\d{4}-\d{2}-\d{2}))?$/i);
+  // "pdf", "report", "redo", "resend"... (optionally with a day): send that
+  // day's report now.
+  const ask = text.trim().match(/^(pdf|report|redo|resend|again|send|تقرير|اعاده|اعادة|إعادة)(?:\s+(\d{4}-\d{2}-\d{2}))?$/i);
   if (ask) {
     const day = ask[2] ?? addDays(egyptToday(), -1);
     await sendText(`Making the ${fmtDay(day)} report...`, messageId);
@@ -349,7 +350,9 @@ export async function handleText(text: string, messageId: number, replyTo: numbe
     const waiting = (data ?? []) as RequestRow[];
     if (waiting.length !== 1) {
       await sendText(
-        waiting.length ? "Reply to the question you're answering (swipe left on it)." : "Nothing is waiting for an answer right now.",
+        waiting.length
+          ? "Reply to the question you're answering (swipe left on it)."
+          : 'Nothing is waiting for an answer right now. Send "pdf" to get yesterday\'s report again.',
         messageId
       );
       return null;
