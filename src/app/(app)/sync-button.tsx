@@ -52,7 +52,10 @@ export function SyncButton({ className = "" }: { className?: string }) {
       //    on them), then the product catalog backfills their line items.
       // Replaces the old strictly-sequential single run of every step.
       const meta = runUntilDone("meta");
-      const shopifyChain = runUntilDone("shopify").then(() => runUntilDone("shopify-products"));
+      //  - then which ad each recent order came from (Campaigns P&L).
+      const shopifyChain = runUntilDone("shopify")
+        .then(() => runUntilDone("shopify-products"))
+        .then(() => oneRun("attribution"));
       await Promise.all([meta, shopifyChain]);
 
       // Compute chain: order matters (sku-monthly-rate falls back to

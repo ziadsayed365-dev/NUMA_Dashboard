@@ -4,6 +4,7 @@ import { REPORT_CACHE_TAG } from "@/lib/reports/cache";
 import { denyUnlessSync } from "@/lib/access";
 import { syncShopifyOrders } from "@/lib/sync/shopify-orders";
 import { syncShopifyProducts } from "@/lib/sync/shopify-products";
+import { syncShopifyAttribution } from "@/lib/sync/shopify-attribution";
 import { syncMetaSpend } from "@/lib/sync/meta-spend";
 import { runCalibration } from "@/lib/engine/calibration";
 import { computeMargins } from "@/lib/engine/margin";
@@ -22,7 +23,7 @@ export const dynamic = "force-dynamic";
 // than one request doing all of them, because the combined runtime (~80s
 // for the full pipeline) exceeds a single serverless function's budget -
 // each step on its own comfortably fits.
-const STEPS = ["shopify", "shopify-products", "meta", "calibrate", "monthly-rate", "sku-monthly-rate", "margins"] as const;
+const STEPS = ["shopify", "shopify-products", "attribution", "meta", "calibrate", "monthly-rate", "sku-monthly-rate", "margins"] as const;
 type Step = (typeof STEPS)[number];
 
 async function runStep(step: Step) {
@@ -31,6 +32,8 @@ async function runStep(step: Step) {
       return syncShopifyOrders();
     case "shopify-products":
       return syncShopifyProducts();
+    case "attribution":
+      return syncShopifyAttribution();
     case "meta":
       return syncMetaSpend();
     case "calibrate":

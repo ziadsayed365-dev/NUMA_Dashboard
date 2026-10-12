@@ -47,6 +47,15 @@ export const PERMISSION_TREE: readonly PageDef[] = [
     ],
   },
   {
+    key: "campaigns",
+    label: "Campaigns P&L",
+    href: "/campaigns",
+    tabs: [
+      { key: "pnl", label: "P&L" },
+      { key: "products", label: "Products Sold" },
+    ],
+  },
+  {
     key: "record-data",
     label: "Expense & Income",
     href: "/record-data",

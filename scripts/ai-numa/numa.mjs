@@ -21,7 +21,7 @@ fs.mkdirSync(OUT, { recursive: true });
 // Mirrors src/app/(app)/sync-button.tsx: the paginated pulls re-run until they
 // report reachedEnd, then the compute chain runs once each, in order. Khazenly
 // has no step - its delivery status rides along on the Shopify orders.
-const PULL_STEPS = ["meta", "shopify", "shopify-products"];
+const PULL_STEPS = ["meta", "shopify", "shopify-products", "attribution"];
 const COMPUTE_STEPS = ["calibrate", "monthly-rate", "sku-monthly-rate", "margins"];
 const MAX_RUNS_PER_STEP = 60;
 
