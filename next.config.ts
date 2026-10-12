@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   // "bin does not exist" on Vercel - include them explicitly.
   outputFileTracingIncludes: {
     "/api/agent/pdf": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+    // AI NUMA sends the report itself once the owner's last answer is in.
+    "/api/agent/webhook": ["./node_modules/@sparticuz/chromium/bin/**/*"],
+    "/api/agent/nightly": ["./node_modules/@sparticuz/chromium/bin/**/*"],
   },
 };
 

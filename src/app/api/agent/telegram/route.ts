@@ -106,6 +106,9 @@ export async function GET(request: NextRequest) {
   try {
     const res = await fetch(`${API}/bot${cfg.token}/getUpdates?timeout=0&allowed_updates=["message"]`);
     const data = await res.json();
+    // 409: the webhook is set, so Telegram hands every answer to
+    // /api/agent/webhook, which has already recorded it. Nothing is waiting here.
+    if (res.status === 409) return NextResponse.json({ ok: true, replies: [], liveChat: true });
     if (!res.ok || !data.ok) throw new Error(data.description ?? `getUpdates failed (HTTP ${res.status})`);
 
     const updates: TelegramUpdate[] = data.result ?? [];
